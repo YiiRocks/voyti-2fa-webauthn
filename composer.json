@@ -40,6 +40,7 @@
         "psr/http-client": "^1.0",
         "rector/rector": "^2.1.1",
         "vimeo/psalm": "6.x-dev",
+        "yiirocks/voyti-views-bootstrap5": "^1.0",
         "yiisoft/code-style": "^1.1",
         "yiisoft/config": "^1.6",
         "yiisoft/csrf": "^2.0",

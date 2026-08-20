@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace YiiRocks\Voyti\TwoFactor\Webauthn\Controller;
 
-use Composer\InstalledVersions;
 use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -173,30 +172,6 @@ final readonly class WebauthnController
     }
 
     /**
-     * Absolute base path of the voyti-2fa package's views, where the generic `two-factor/index` and
-     * `two-factor/backup-codes` pages this controller composes live.
-     */
-    private function baseViewPath(): string
-    {
-        /** @var non-empty-string $basePath */
-        $basePath = InstalledVersions::getInstallPath('yiirocks/voyti-2fa');
-
-        return $basePath . '/resources/views/' . $this->config->webTheme->value;
-    }
-
-    /**
-     * Absolute base path of the core module's views, whose shared chrome (menu, flash) the composed
-     * `two-factor/index` and `two-factor/backup-codes` pages include via their `$coreViews` variable.
-     */
-    private function coreViewPath(): string
-    {
-        /** @var non-empty-string $corePath */
-        $corePath = InstalledVersions::getInstallPath('yiirocks/voyti');
-
-        return $corePath . '/resources/views/' . $this->config->webTheme->value;
-    }
-
-    /**
      * @return array<string, mixed>
      */
     private function createSetupData(User $user, string $domain = ''): array
@@ -217,7 +192,7 @@ final readonly class WebauthnController
     private function renderBackupCodes(array $codes): ResponseInterface
     {
         return $this->renderView('two-factor/backup-codes', [
-            'coreViews' => $this->coreViewPath(),
+            'coreViews' => $this->resolveViewPath('shared/_menu'),
             'data' => [
                 'menu' => MenuView::account($this->config, $this->url, $this->translator()),
                 'codes' => $codes,
@@ -236,7 +211,7 @@ final readonly class WebauthnController
         ?string $preloadedFragmentHtml = null,
     ): ResponseInterface {
         return $this->renderView('two-factor/index', [
-            'coreViews' => $this->coreViewPath(),
+            'coreViews' => $this->resolveViewPath('shared/_menu'),
             /** @infection-ignore-all The index template only uses `$form` in the enabled-user branch (disable form); this screen only ever shows non-enabled users, so the value is unobservable here. */
             'form' => new TwoFactorCodeForm($this->translator, $method->getName()),
             'data' => IndexView::create(
@@ -253,24 +228,5 @@ final readonly class WebauthnController
                 $this->translator(),
             ),
         ]);
-    }
-
-    /**
-     * Shadows {@see RenderTrait::resolveViewPath()} to look in this package's bundled views first
-     * (for the `two-factor/_webauthn` fragments), then the host's override path, then voyti-2fa's
-     * views for the generic `two-factor/index` and `two-factor/backup-codes` pages it composes.
-     */
-    private function resolveViewPath(string $view): string
-    {
-        $pluginPath = dirname(__DIR__, 2) . '/resources/views/' . $this->config->webTheme->value;
-        if (is_file($pluginPath . '/' . $view . '.php')) {
-            return $pluginPath;
-        }
-
-        if ($this->config->viewPath !== null && is_file($this->config->viewPath . '/' . $view . '.php')) {
-            return $this->config->viewPath;
-        }
-
-        return $this->baseViewPath();
     }
 }
