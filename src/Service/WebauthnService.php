@@ -11,7 +11,6 @@ use ReportUri\Passkeys\WebAuthnException;
 use stdClass;
 use YiiRocks\Voyti\Model\User;
 use YiiRocks\Voyti\TwoFactor\Webauthn\Model\UserWebauthnCredential;
-use Yiisoft\Json\Json;
 use Yiisoft\Session\SessionInterface;
 use Yiisoft\Translator\TranslatorInterface;
 
@@ -52,25 +51,23 @@ final class WebauthnService
      * Builds the `publicKey` options for a `navigator.credentials.create()` call and stores the
      * ceremony challenge in the session, consumed by {@see self::register()}.
      *
-     * @return array<string, mixed>
+     * @return stdClass The library's creation options with binary members as base64url strings.
      */
-    public function getCreateArgs(User $user, string $domain = ''): array
+    public function getCreateArgs(User $user, string $domain = ''): stdClass
     {
         $webauthn = $this->createWebAuthn($domain);
 
-        /** @var array<string, mixed> $createArgs */
-        $createArgs = Json::decode(Json::encode($webauthn->getCreateArgs(
+        $createArgs = $webauthn->getCreateArgs(
             $this->userHandle($user),
             $user->getUsername(),
             $user->getUsername(),
             60,
             false,
             true,
-        )));
+        );
 
         $this->session->set(self::SESSION_KEY_REGISTER_CHALLENGE, $webauthn->getChallenge()->getBinaryString());
 
-        /** @infection-ignore-all The decoded args are a single-key {publicKey: ...} array, so an array_slice to its first element is identical. */
         return $createArgs;
     }
 
@@ -83,9 +80,9 @@ final class WebauthnService
      * Builds the `publicKey` options for a `navigator.credentials.get()` call restricted to the
      * user's enrolled credentials, storing the ceremony challenge for {@see self::verify()}.
      *
-     * @return array<string, mixed>
+     * @return stdClass The library's assertion options with binary members as base64url strings.
      */
-    public function getGetArgs(User $user, string $domain = ''): array
+    public function getGetArgs(User $user, string $domain = ''): stdClass
     {
         $webauthn = $this->createWebAuthn($domain);
         $credentialIds = [];
@@ -93,12 +90,10 @@ final class WebauthnService
             $credentialIds[] = base64_decode($credential->getCredentialId());
         }
 
-        /** @var array<string, mixed> $getArgs */
-        $getArgs = Json::decode(Json::encode($webauthn->getGetArgs($credentialIds, 60, true, true, true, true, true, true)));
+        $getArgs = $webauthn->getGetArgs($credentialIds, 60, true, true, true, true, true, true);
 
         $this->session->set(self::SESSION_KEY_CONFIRM_CHALLENGE, $webauthn->getChallenge()->getBinaryString());
 
-        /** @infection-ignore-all The decoded args are a single-key {publicKey: ...} array, so an array_slice to its first element is identical. */
         return $getArgs;
     }
 

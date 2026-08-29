@@ -41,18 +41,18 @@ final class WebauthnServiceTest extends DatabaseTestCase
 
         $args = $service->getCreateArgs($user);
 
-        self::assertSame('localhost', $args['publicKey']['rp']['id']);
-        self::assertSame('public-key', $args['publicKey']['pubKeyCredParams'][0]['type']);
-        self::assertSame(60000, $args['publicKey']['timeout']);
-        self::assertSame($user->getUsername(), $args['publicKey']['user']['name']);
-        // The user handle is a stable per-user hash (prefix + id), base64url-encoded in the args.
+        self::assertSame('localhost', $args->publicKey->rp->id);
+        self::assertSame('public-key', $args->publicKey->pubKeyCredParams[0]->type);
+        self::assertSame(60000, $args->publicKey->timeout);
+        self::assertSame($user->getUsername(), $args->publicKey->user->name);
+        // The user handle is a stable per-user hash (prefix + id) exposed as a binary ByteBuffer.
         self::assertSame(
             hash('sha256', 'yiirocks/voyti-2fa-webauthn:' . $user->getIdOrZero(), true),
-            base64_decode(strtr((string) $args['publicKey']['user']['id'], '-_', '+/')),
+            $args->publicKey->user->id->getBinaryString(),
         );
         // The ceremony flags: user verification required, resident key not required.
-        self::assertSame('required', $args['publicKey']['authenticatorSelection']['userVerification']);
-        self::assertArrayNotHasKey('requireResidentKey', $args['publicKey']['authenticatorSelection']);
+        self::assertSame('required', $args->publicKey->authenticatorSelection->userVerification);
+        self::assertFalse(property_exists($args->publicKey->authenticatorSelection, 'requireResidentKey'));
         self::assertSame('', $service->getErrorMessage());
         self::assertIsString($session->get(self::SESSION_KEY_REGISTER_CHALLENGE));
         self::assertNotSame('', $session->get(self::SESSION_KEY_REGISTER_CHALLENGE));
@@ -68,15 +68,19 @@ final class WebauthnServiceTest extends DatabaseTestCase
 
         $args = $service->getGetArgs($user);
 
-        self::assertSame(60000, $args['publicKey']['timeout']);
-        self::assertSame('required', $args['publicKey']['userVerification']);
-        self::assertCount(1, $args['publicKey']['allowCredentials']);
-        self::assertSame('public-key', $args['publicKey']['allowCredentials'][0]['type']);
-        self::assertIsString($args['publicKey']['allowCredentials'][0]['id']);
+        self::assertSame(60000, $args->publicKey->timeout);
+        self::assertSame('required', $args->publicKey->userVerification);
+        self::assertCount(1, $args->publicKey->allowCredentials);
+        self::assertSame('public-key', $args->publicKey->allowCredentials[0]->type);
+        // The credential id is the enrolled id, base64-decoded into a ByteBuffer by getGetArgs.
+        self::assertSame(
+            base64_decode(self::CREDENTIAL_ID_BINARY),
+            $args->publicKey->allowCredentials[0]->id->getBinaryString(),
+        );
         // All transports are advertised (every allow* flag is enabled).
         self::assertSame(
             ['usb', 'nfc', 'ble', 'hybrid', 'internal'],
-            $args['publicKey']['allowCredentials'][0]['transports'],
+            $args->publicKey->allowCredentials[0]->transports,
         );
         self::assertIsString($session->get(self::SESSION_KEY_CONFIRM_CHALLENGE));
 
@@ -84,7 +88,7 @@ final class WebauthnServiceTest extends DatabaseTestCase
         $emptyUser = $this->createUser(username: 'wa_getargs_empty', email: 'wa_getargs_empty@example.com');
         $emptySession = new FakeSession();
         $emptyArgs = $this->createService($emptySession)->getGetArgs($emptyUser);
-        self::assertArrayNotHasKey('allowCredentials', $emptyArgs['publicKey']);
+        self::assertFalse(property_exists($emptyArgs->publicKey, 'allowCredentials'));
     }
 
     public function testRegister(): void
