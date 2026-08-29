@@ -45,6 +45,8 @@ final class WebauthnServiceTest extends DatabaseTestCase
         self::assertSame('public-key', $args->publicKey->pubKeyCredParams[0]->type);
         self::assertSame(60000, $args->publicKey->timeout);
         self::assertSame($user->getUsername(), $args->publicKey->user->name);
+        // Without a profile (or an unnamed one), the display name falls back to the username.
+        self::assertSame($user->getUsername(), $args->publicKey->user->displayName);
         // The user handle is a stable per-user hash (prefix + id) exposed as a binary ByteBuffer.
         self::assertSame(
             hash('sha256', 'yiirocks/voyti-2fa-webauthn:' . $user->getIdOrZero(), true),
@@ -56,6 +58,15 @@ final class WebauthnServiceTest extends DatabaseTestCase
         self::assertSame('', $service->getErrorMessage());
         self::assertIsString($session->get(self::SESSION_KEY_REGISTER_CHALLENGE));
         self::assertNotSame('', $session->get(self::SESSION_KEY_REGISTER_CHALLENGE));
+
+        // Scenario 2: a user with a named profile gets that name as the display name.
+        $namedUser = $this->createUser(username: 'wa_create_named', email: 'wa_create_named@example.com');
+        $this->createUserProfile($namedUser->getIdOrZero(), 'Wa Create Named');
+
+        $namedArgs = $this->createService(new FakeSession())->getCreateArgs($namedUser);
+
+        self::assertSame($namedUser->getUsername(), $namedArgs->publicKey->user->name);
+        self::assertSame('Wa Create Named', $namedArgs->publicKey->user->displayName);
     }
 
     public function testGetGetArgsRestrictsToEnrolledCredentials(): void
@@ -69,7 +80,7 @@ final class WebauthnServiceTest extends DatabaseTestCase
         $args = $service->getGetArgs($user);
 
         self::assertSame(60000, $args->publicKey->timeout);
-        self::assertSame('required', $args->publicKey->userVerification);
+        self::assertSame('discouraged', $args->publicKey->userVerification);
         self::assertCount(1, $args->publicKey->allowCredentials);
         self::assertSame('public-key', $args->publicKey->allowCredentials[0]->type);
         // The credential id is the enrolled id, base64-decoded into a ByteBuffer by getGetArgs.
@@ -172,7 +183,8 @@ final class WebauthnServiceTest extends DatabaseTestCase
         ]));
         self::assertSame('', $service->getErrorMessage());
         self::assertTrue($webauthn->processGetCalled);
-        self::assertTrue($webauthn->lastGetRequireUserVerification);
+        // Verification is discouraged, not required, matching the getGetArgs() ceremony options.
+        self::assertFalse($webauthn->lastGetRequireUserVerification);
         self::assertSame('{}', $webauthn->lastGetClientDataJSON);
         self::assertArrayNotHasKey(self::SESSION_KEY_CONFIRM_CHALLENGE, $session->all());
 

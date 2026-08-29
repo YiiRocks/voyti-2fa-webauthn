@@ -24,7 +24,11 @@ return [
         VoytiConfig $voytiConfig,
     ): WebauthnService {
         // The relying-party id is the request domain, resolved per ceremony; the name is the app's.
-        $factory = static fn(string $domain): WebAuthn => new WebAuthn($voytiConfig->appName, $domain, true);
+        $factory = static fn(string $domain): WebAuthn => new WebAuthn(
+            $voytiConfig->appName,
+            $domain,
+            useBase64UrlEncoding: true,
+        );
 
         return new WebauthnService($session, $translator, $clock, $factory);
     },

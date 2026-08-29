@@ -14,8 +14,8 @@ use Yiisoft\Db\Sqlite\Dsn;
 
 /**
  * In-memory SQLite with the tables the WebAuthn flows touch: a plain `user` (no auth_tf_* columns -
- * 2FA state lives in `user_two_factor`), `user_two_factor`, `user_backup_code`, and this package's
- * own `user_webauthn_credential`.
+ * 2FA state lives in `user_two_factor`), `user_two_factor`, `user_backup_code`, `user_profile`
+ * (queried for its display name), and this package's own `user_webauthn_credential`.
  */
 trait DatabaseSetupTrait
 {
@@ -76,6 +76,13 @@ trait DatabaseSetupTrait
         ')->execute();
 
         $connection->createCommand('
+            CREATE TABLE "user_profile" (
+                "user_id" INTEGER NOT NULL PRIMARY KEY,
+                "name" VARCHAR(255)
+            )
+        ')->execute();
+
+        $connection->createCommand('
             CREATE TABLE "user_webauthn_credential" (
                 "id" INTEGER PRIMARY KEY AUTOINCREMENT,
                 "user_id" INTEGER NOT NULL,
@@ -95,6 +102,7 @@ trait DatabaseSetupTrait
     {
         if ($this->dbConnection !== null) {
             $this->dbConnection->createCommand('DROP TABLE IF EXISTS "user_webauthn_credential"')->execute();
+            $this->dbConnection->createCommand('DROP TABLE IF EXISTS "user_profile"')->execute();
             $this->dbConnection->createCommand('DROP TABLE IF EXISTS "user_backup_code"')->execute();
             $this->dbConnection->createCommand('DROP TABLE IF EXISTS "user_two_factor"')->execute();
             $this->dbConnection->createCommand('DROP TABLE IF EXISTS "user"')->execute();

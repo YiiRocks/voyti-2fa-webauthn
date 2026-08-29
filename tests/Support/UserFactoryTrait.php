@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace YiiRocks\Voyti\TwoFactor\Webauthn\tests\Support;
 
 use YiiRocks\Voyti\Model\User;
+use YiiRocks\Voyti\Model\UserProfile;
 use YiiRocks\Voyti\TwoFactor\Model\UserTwoFactor;
 
 /**
@@ -39,6 +40,16 @@ trait UserFactoryTrait
         $user->save();
 
         return $user;
+    }
+
+    private function createUserProfile(int $userId, ?string $name): UserProfile
+    {
+        $profile = new UserProfile();
+        $profile->setUserId($userId);
+        $profile->setName($name);
+        $profile->save();
+
+        return $profile;
     }
 
     private function createUserTwoFactor(

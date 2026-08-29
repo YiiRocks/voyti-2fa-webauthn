@@ -15,11 +15,13 @@ use Yiisoft\Session\SessionInterface;
 use Yiisoft\Translator\TranslatorInterface;
 
 /**
- * Drives WebAuthn registration and assertion ceremonies for the configured relying party: builds
- * the creation/request options the browser passes to `navigator.credentials.create()`/`.get()`
- * (persisting each ceremony's challenge in the session), verifies the browser's attestation/
- * assertion against the {@see WebAuthn} server library, and stores/updates the user's enrolled
- * public-key credentials. All errors surface through {@see self::getErrorMessage()}.
+ * Drives WebAuthn registration and login ceremonies for the configured relying party, each a pair
+ * of methods: {@see self::getCreateArgs()}/{@see self::register()} for registration (the
+ * `navigator.credentials.create()` side), {@see self::getGetArgs()}/{@see self::verify()} for
+ * login (the `navigator.credentials.get()` side). Builds each ceremony's options (persisting its
+ * challenge in the session), verifies the browser's response against the {@see WebAuthn} server
+ * library, and stores/updates the user's enrolled public-key credentials. All errors surface
+ * through {@see self::getErrorMessage()}.
  */
 final class WebauthnService
 {
@@ -40,7 +42,8 @@ final class WebauthnService
     ) {}
 
     /**
-     * Removes every enrolled credential (used when two-factor authentication is disabled).
+     * Neither ceremony: removes every enrolled credential (used when two-factor authentication is
+     * disabled).
      */
     public function deleteAllCredentials(User $user): void
     {
@@ -48,8 +51,8 @@ final class WebauthnService
     }
 
     /**
-     * Builds the `publicKey` options for a `navigator.credentials.create()` call and stores the
-     * ceremony challenge in the session, consumed by {@see self::register()}.
+     * Registration: builds the `publicKey` options for a `navigator.credentials.create()` call and
+     * stores the ceremony challenge in the session, consumed by {@see self::register()}.
      *
      * @return stdClass The library's creation options with binary members as base64url strings.
      */
@@ -60,10 +63,9 @@ final class WebauthnService
         $createArgs = $webauthn->getCreateArgs(
             $this->userHandle($user),
             $user->getUsername(),
-            $user->getUsername(),
-            60,
-            false,
-            true,
+            $user->getProfile()?->getName() ?? $user->getUsername(),
+            timeout: 60,
+            requireUserVerification: true,
         );
 
         $this->session->set(self::SESSION_KEY_REGISTER_CHALLENGE, $webauthn->getChallenge()->getBinaryString());
@@ -77,8 +79,8 @@ final class WebauthnService
     }
 
     /**
-     * Builds the `publicKey` options for a `navigator.credentials.get()` call restricted to the
-     * user's enrolled credentials, storing the ceremony challenge for {@see self::verify()}.
+     * Login: builds the `publicKey` options for a `navigator.credentials.get()` call restricted to
+     * the user's enrolled credentials, storing the ceremony challenge for {@see self::verify()}.
      *
      * @return stdClass The library's assertion options with binary members as base64url strings.
      */
@@ -90,7 +92,7 @@ final class WebauthnService
             $credentialIds[] = base64_decode($credential->getCredentialId());
         }
 
-        $getArgs = $webauthn->getGetArgs($credentialIds, 60, true, true, true, true, true, true);
+        $getArgs = $webauthn->getGetArgs($credentialIds, timeout: 60, requireUserVerification: 'discouraged');
 
         $this->session->set(self::SESSION_KEY_CONFIRM_CHALLENGE, $webauthn->getChallenge()->getBinaryString());
 
@@ -98,7 +100,8 @@ final class WebauthnService
     }
 
     /**
-     * Verifies a registration attestation and persists the new credential.
+     * Registration: verifies the browser's attestation response (from the options built by
+     * {@see self::getCreateArgs()}) and persists the new credential.
      *
      * @param array<array-key, mixed> $data expected keys: `clientDataJSON`, `attestationObject`
      */
@@ -117,7 +120,7 @@ final class WebauthnService
                 $this->decode($data['clientDataJSON'] ?? null),
                 $this->decode($data['attestationObject'] ?? null),
                 $challenge,
-                true,
+                requireUserVerification: true,
             );
         } catch (WebAuthnException) {
             $this->errorMessage = $this->translateError('voyti-2fa-webauthn.error.verification_failed');
@@ -145,7 +148,8 @@ final class WebauthnService
     }
 
     /**
-     * Verifies a login assertion against the user's stored credential and updates its sign counter.
+     * Login: verifies the browser's assertion response (from the options built by
+     * {@see self::getGetArgs()}) against the user's stored credential and updates its sign counter.
      *
      * @param array<array-key, mixed> $data expected keys: `id`, `clientDataJSON`, `authenticatorData`,
      *        `signature`
@@ -173,8 +177,7 @@ final class WebauthnService
                 $this->decode($data['signature'] ?? null),
                 $credential->getPublicKey(),
                 $challenge,
-                $credential->getSignCount(),
-                true,
+                prevSignatureCnt: $credential->getSignCount(),
             );
         } catch (WebAuthnException) {
             $this->errorMessage = $this->translateError('voyti-2fa-webauthn.error.verification_failed');
