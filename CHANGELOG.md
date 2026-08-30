@@ -1,5 +1,7 @@
 # Yii3 Voyti 2FA WebAuthn Changelog
 
+## 1.0.3 under development
+
 ## 1.0.2 - August 30, 2026
 
 - Chg: Use `discouraged` instead of `required` user verification for login assertions.
