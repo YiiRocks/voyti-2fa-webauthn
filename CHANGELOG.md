@@ -1,10 +1,10 @@
 # Yii3 Voyti 2FA WebAuthn Changelog
 
-## 1.0.2 under development
+## 1.0.2 - August 30, 2026
 
-- Enh: `WebauthnService::getCreateArgs()` writes the ceremony challenge out by reference, and `register()` accepts a `$challengeOverride`, for a caller with no session continuity across the two legs of the ceremony (e.g. a stateless API bridge).
 - Chg: Use `discouraged` instead of `required` user verification for login assertions.
 - Chg: Use the user's profile name (falling back to username) as the WebAuthn registration display name.
+- Enh: `WebauthnService::getCreateArgs()` writes the ceremony challenge out by reference, and `register()` accepts a `$challengeOverride`, for a caller with no session continuity across the two legs of the ceremony (e.g. a stateless API bridge).
 
 ## 1.0.1 - August 21, 2026
 
