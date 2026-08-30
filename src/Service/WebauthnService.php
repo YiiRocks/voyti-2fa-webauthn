@@ -52,11 +52,14 @@ final class WebauthnService
 
     /**
      * Registration: builds the `publicKey` options for a `navigator.credentials.create()` call and
-     * stores the ceremony challenge in the session, consumed by {@see self::register()}.
+     * stores the ceremony challenge in the session, consumed by {@see self::register()}. `$challenge`
+     * is also written out by reference for a caller with no session continuity across the two legs
+     * of the ceremony (e.g. a stateless API bridge), to persist itself and pass back in via
+     * {@see self::register()}'s `$challengeOverride`.
      *
      * @return stdClass The library's creation options with binary members as base64url strings.
      */
-    public function getCreateArgs(User $user, string $domain = ''): stdClass
+    public function getCreateArgs(User $user, string $domain = '', ?string &$challenge = null): stdClass
     {
         $webauthn = $this->createWebAuthn($domain);
 
@@ -68,7 +71,8 @@ final class WebauthnService
             requireUserVerification: true,
         );
 
-        $this->session->set(self::SESSION_KEY_REGISTER_CHALLENGE, $webauthn->getChallenge()->getBinaryString());
+        $challenge = $webauthn->getChallenge()->getBinaryString();
+        $this->session->set(self::SESSION_KEY_REGISTER_CHALLENGE, $challenge);
 
         return $createArgs;
     }
@@ -101,14 +105,16 @@ final class WebauthnService
 
     /**
      * Registration: verifies the browser's attestation response (from the options built by
-     * {@see self::getCreateArgs()}) and persists the new credential.
+     * {@see self::getCreateArgs()}) and persists the new credential. `$challengeOverride` lets a
+     * caller with no session continuity (e.g. a stateless API bridge) supply the challenge it stored
+     * itself from `getCreateArgs()`'s by-reference output, instead of reading/clearing the session.
      *
      * @param array<array-key, mixed> $data expected keys: `clientDataJSON`, `attestationObject`
      */
-    public function register(User $user, array $data, string $domain = ''): bool
+    public function register(User $user, array $data, string $domain = '', ?string $challengeOverride = null): bool
     {
         $webauthn = $this->createWebAuthn($domain);
-        $challenge = $this->session->get(self::SESSION_KEY_REGISTER_CHALLENGE);
+        $challenge = $challengeOverride ?? $this->session->get(self::SESSION_KEY_REGISTER_CHALLENGE);
         if (!is_string($challenge) || $challenge === '') {
             $this->errorMessage = $this->translateError('voyti-2fa-webauthn.error.missing_challenge');
             return false;
@@ -127,7 +133,9 @@ final class WebauthnService
             return false;
         }
 
-        $this->session->remove(self::SESSION_KEY_REGISTER_CHALLENGE);
+        if ($challengeOverride === null) {
+            $this->session->remove(self::SESSION_KEY_REGISTER_CHALLENGE);
+        }
 
         $credential = new UserWebauthnCredential();
         $credential->setUserId($user->getIdOrZero());

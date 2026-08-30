@@ -13,6 +13,8 @@ trait WebauthnCredentialFactoryTrait
 {
     public const string CREDENTIAL_ID_BINARY = 'credential-id-binary';
     public const string CREDENTIAL_ID_NOCOUNTER = 'credential-id-nocounter';
+    public const string CREDENTIAL_ID_OVERRIDE = 'credential-id-override';
+    public const string CREDENTIAL_ID_PRECEDENCE = 'credential-id-precedence';
     public const string ERROR_EXPIRED = 'The security key check has expired. Please try again.';
     public const string ERROR_NOT_FOUND = 'No matching security key was found for this account.';
     public const string ERROR_VERIFICATION = 'The security key could not be verified. Please try again.';

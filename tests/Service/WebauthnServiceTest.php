@@ -155,6 +155,42 @@ final class WebauthnServiceTest extends DatabaseTestCase
         self::assertFalse($service2->register($user, []));
         self::assertSame(self::ERROR_EXPIRED, $service2->getErrorMessage());
 
+        // Scenario 4: a $challengeOverride is used instead of the (empty) session, and the session
+        // is left untouched - for a caller with no session continuity across the ceremony's two legs.
+        $userOverride = $this->createUser(username: 'wa_register_override', email: 'wa_register_override@example.com');
+        $webauthnOverride = new StubWebAuthn();
+        $overrideResult = $this->validCreateResult();
+        $overrideResult->credentialId = self::CREDENTIAL_ID_OVERRIDE;
+        $webauthnOverride->createResult = $overrideResult;
+        $emptySession = new FakeSession();
+        $serviceOverride = $this->createService($emptySession, fn() => $webauthnOverride);
+
+        self::assertTrue($serviceOverride->register(
+            $userOverride,
+            ['clientDataJSON' => base64_encode('{}'), 'attestationObject' => base64_encode('raw')],
+            challengeOverride: 'override-challenge',
+        ));
+        self::assertArrayNotHasKey(self::SESSION_KEY_REGISTER_CHALLENGE, $emptySession->all());
+
+        // Scenario 5: challengeOverride takes precedence even when the session also holds a
+        // (stale, wrong) challenge - proves the override is preferred, not merely used as a fallback.
+        $userPrecedence = $this->createUser(username: 'wa_register_precedence', email: 'wa_register_precedence@example.com');
+        $webauthnPrecedence = new StubWebAuthn();
+        $precedenceResult = $this->validCreateResult();
+        $precedenceResult->credentialId = self::CREDENTIAL_ID_PRECEDENCE;
+        $webauthnPrecedence->createResult = $precedenceResult;
+        $sessionPrecedence = $this->sessionWithRegisterChallenge();
+        $servicePrecedence = $this->createService($sessionPrecedence, fn() => $webauthnPrecedence);
+
+        self::assertTrue($servicePrecedence->register(
+            $userPrecedence,
+            ['clientDataJSON' => base64_encode('{}'), 'attestationObject' => base64_encode('raw')],
+            challengeOverride: 'override-challenge',
+        ));
+        self::assertSame('override-challenge', $webauthnPrecedence->lastCreateChallenge);
+        // The session's stale challenge is left untouched since an override was used.
+        self::assertSame('challenge', $sessionPrecedence->get(self::SESSION_KEY_REGISTER_CHALLENGE));
+
         // Scenario 3: a verification exception fails with the generic verification error
         $webauthn3 = new StubWebAuthn();
         $webauthn3->createException = new WebAuthnException('boom');

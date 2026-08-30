@@ -19,6 +19,7 @@ final class StubWebAuthn extends WebAuthn
     public ?stdClass $createResult = null;
     public ?WebAuthnException $getException = null;
     public mixed $lastCreateAttestationObject = null;
+    public mixed $lastCreateChallenge = null;
     public mixed $lastCreateClientDataJSON = null;
     public bool $lastCreateRequireUserVerification = false;
     public mixed $lastGetClientDataJSON = null;
@@ -45,6 +46,7 @@ final class StubWebAuthn extends WebAuthn
     ): mixed {
         $this->lastCreateClientDataJSON = $clientDataJSON;
         $this->lastCreateAttestationObject = $attestationObject;
+        $this->lastCreateChallenge = $challenge;
         $this->lastCreateRequireUserVerification = $requireUserVerification;
 
         if ($this->createException !== null) {
