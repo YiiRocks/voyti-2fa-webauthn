@@ -34,9 +34,7 @@ final class UserWebauthnCredential extends ActiveRecord
     }
 
     /**
-     * @return UserWebauthnCredential[]
-     *
-     * @psalm-return list<UserWebauthnCredential>
+     * @return list<UserWebauthnCredential>
      */
     public static function findAllByUserId(int $userId): array
     {
