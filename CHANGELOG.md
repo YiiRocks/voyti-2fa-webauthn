@@ -2,6 +2,8 @@
 
 ## 1.0.3 under development
 
+- Chg: Contribute method routes through the shared `2fa.methodRoutes` configuration group.
+
 ## 1.0.2 - August 30, 2026
 
 - Chg: Use `discouraged` instead of `required` user verification for login assertions.
