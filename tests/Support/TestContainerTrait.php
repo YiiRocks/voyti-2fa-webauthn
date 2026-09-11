@@ -27,6 +27,7 @@ use Yiisoft\Session\Flash\Flash;
 use Yiisoft\Session\Flash\FlashInterface;
 use Yiisoft\Session\SessionInterface;
 use Yiisoft\Translator\CategorySource;
+use Yiisoft\Translator\IntlMessageFormatter;
 use Yiisoft\Translator\Message\Php\MessageSource;
 use Yiisoft\Translator\SimpleMessageFormatter;
 use Yiisoft\Translator\Translator;
@@ -104,7 +105,7 @@ trait TestContainerTrait
             TranslatorInterface::class => (static function () use ($corePath, $twoFaPath, $pkgPath, $validatorCategorySource): TranslatorInterface {
                 $translator = new Translator('en', null, 'voyti');
                 $translator->addCategorySources(
-                    new CategorySource('voyti', new MessageSource($corePath . '/resources/messages'), new SimpleMessageFormatter()),
+                    new CategorySource('voyti', new MessageSource($corePath . '/resources/messages'), new IntlMessageFormatter()),
                     new CategorySource('voyti-2fa', new MessageSource($twoFaPath . '/resources/messages'), new SimpleMessageFormatter()),
                     new CategorySource('voyti-2fa-webauthn', new MessageSource($pkgPath . '/resources/messages'), new SimpleMessageFormatter()),
                     $validatorCategorySource,
